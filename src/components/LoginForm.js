@@ -13,15 +13,23 @@ export default function LoginForm({ onLogin }) {
             localStorage.setItem('token', res.data.token);
             onLogin();
         } catch (err) {
-            setError('Неверный логин или пароль');
+            if (err.response) {
+                setError(err.response.data.error || 'Р°С€РёРїР°РєР°');
+            } else if (err.request) {
+                setError('пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ');
+            } else {
+                setError('пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ');
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <form onSubmit={handleSubmit}>
-            <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Логин" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Пароль" />
-            <button type="submit">Войти</button>
+            <input value={username} onChange={e => setUsername(e.target.value)} placeholder="пїЅпїЅпїЅпїЅпїЅ" />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="пїЅпїЅпїЅпїЅпїЅпїЅ" />
+            <button type="submit">пїЅпїЅпїЅпїЅпїЅ</button>
             {error && <div style={{ color: 'red' }}>{error}</div>}
         </form>
     );
