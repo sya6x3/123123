@@ -26,11 +26,47 @@ export default function LoginForm({ onLogin }) {
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            <input value={username} onChange={e => setUsername(e.target.value)} placeholder="�����" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="������" />
-            <button type="submit">�����</button>
-            {error && <div style={{ color: 'red' }}>{error}</div>}
-        </form>
+        <div className="login-container">
+            <div className="login-card">
+                <h2 className="login-title">���� � �������</h2>
+                <form onSubmit={handleSubmit} className="login-form">
+                    <div className="form-group">
+                        <label htmlFor="username">�����</label>
+                        <input
+                            id="username"
+                            type="text"
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                            placeholder="Логин"
+                            required
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="password">������</label>
+                        <input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder="Пароль"
+                            required
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="login-button"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? (
+                            <span className="spinner"></span>
+                        ) : 'Войти'}
+                    </button>
+
+                    {error && <div className="error-message">{error}</div>}
+                </form>
+            </div>
+        </div>
     );
 }
