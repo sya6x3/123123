@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import './LoginForm.css';
 
 export default function LoginForm({ onLogin }) {
+    const API_BASE_URL = "http://localhost:5000";
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleSubmit = async e => {
         e.preventDefault();
+        setIsLoading(true);
+        setError('');
+
         try {
-            const res = await axios.post('http://localhost:5000/api/login', { username, password });
-            localStorage.setItem('token', res.data.token);
+            await axios.post(
+                `${API_BASE_URL}/api/login`,
+                { username, password },
+                { withCredentials: true }
+            );
+
             onLogin();
+            navigate('/'); // ��������� ���������������
         } catch (err) {
             if (err.response) {
                 setError(err.response.data.error || 'ашипака');

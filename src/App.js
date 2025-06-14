@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import ReportForm from './components/ReportForm';
+import ReportForm from './ReportPage/ReportForm';
 import EventList from './components/EventList';
 import { Tab, Tabs } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
