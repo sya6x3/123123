@@ -5,18 +5,37 @@ import EventList from './components/EventList';
 import { Tab, Tabs } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import { AuthProvider, useAuth } from './AuthContext';
+import { AuthProvider, useAuth } from './components/AuthContext';
 import LoginPage from './components/LoginForm';
+import axios from 'axios';
 
 const ProtectedRoute = ({ children }) => {
-    const { user } = useAuth();
+    const { user, checkAuth } = useAuth();
+    const [isChecking, setIsChecking] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!user) {
+        const verifyAuth = async () => {
+            await checkAuth(); // Обновляем статус аутентификации
+            setIsChecking(false);
+        };
+
+        verifyAuth();
+    }, []);
+
+    useEffect(() => {
+        if (!isChecking && !user) {
             navigate('/login');
         }
-    }, [user, navigate]);
+    }, [user, isChecking, navigate]);
+
+    if (isChecking) {
+        return <div className="d-flex justify-content-center mt-5">
+            <div className="spinner-border" role="status">
+                <span className="visually-hidden">Загрузка...</span>
+            </div>
+        </div>;
+    }
 
     return user ? children : null;
 };

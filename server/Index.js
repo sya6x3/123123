@@ -41,6 +41,11 @@ app.use(cors({
     credentials: true // Разрешаем передачу кук
 }));
 
+// После app.use(cors())
+app.options('*', cors()); // Разрешить preflight запросы для всех роутов
+app.use(bodyParser.json());
+app.use('/uploads', express.static('uploads'));
+
 app.get('/api/check-auth', (req, res) => {
     if (req.session.user) {
         res.json({ authenticated: true, user: req.session.user });
@@ -49,57 +54,6 @@ app.get('/api/check-auth', (req, res) => {
     }
 });
 
-
-// После app.use(cors())
-app.options('*', cors()); // Разрешить preflight запросы для всех роутов
-app.use(bodyParser.json());
-app.use('/uploads', express.static('uploads'));
-
-
-app.get('/api/events/export/excel', async (req, res) => {
-    // (можно использовать тот же SQL, что и для /api/events)
-    db.query('SELECT ...', (err, rows) => {
-        if (err) return res.status(500).json({ error: 'DB error' });
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Events');
-        sheet.columns = [
-            { header: 'Название', key: 'full_name' },
-            { header: 'Дата', key: 'event_date' },
-            { header: 'Место', key: 'location' },
-            { header: 'Уровень', key: 'event_level' },
-            { header: 'Результат', key: 'result_level' },
-            { header: 'Преподаватели', key: 'teachers' },
-            { header: 'Студенты', key: 'students' },
-            // картинки можно добавить ссылкой
-        ];
-        rows.forEach(row => sheet.addRow(row));
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=events.xlsx');
-        workbook.xlsx.write(res).then(() => res.end());
-    });
-});
-
-app.get('/api/events/export/pdf', (req, res) => {
-    db.query('SELECT ...', async (err, rows) => {
-        if (err) return res.status(500).json({ error: 'DB error' });
-        const doc = new PDFDocument();
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=events.pdf');
-        doc.pipe(res);
-        rows.forEach(row => {
-            doc.fontSize(14).text(`Название: ${row.full_name}`);
-            doc.text(`Дата: ${row.event_date}`);
-            // ... и т.д.
-            if (row.photo_path) {
-                try {
-                    doc.image(path.join(__dirname, row.photo_path), { width: 100 });
-                } catch { }
-            }
-            doc.moveDown();
-        });
-        doc.end();
-    });
-});
 
 
 // Регистрация
@@ -181,62 +135,139 @@ const storage = multer.diskStorage({
 app.get('/api/events/export', authMiddleware, async (req, res) => {
     try {
         const format = req.query.format || 'excel';
-
-        // Получаем данные (можно использовать тот же запрос, что и для /api/events)
         const events = await getFilteredEvents(req.query);
 
         if (format === 'excel') {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Мероприятия');
 
-            // Заголовки
+            // Добавляем столбец для пути к фото
             worksheet.columns = [
-                { header: 'Название', key: 'name', width: 30 },
-                { header: 'Дата', key: 'date', width: 15 },
+                { header: 'Название', key: 'full_name', width: 30 },
+                { header: 'Дата', key: 'event_date', width: 15 },
                 { header: 'Место', key: 'location', width: 20 },
-                { header: 'Уровень', key: 'level', width: 20 },
-                { header: 'Результат', key: 'result', width: 20 }
+                { header: 'Уровень', key: 'event_level', width: 20 },
+                { header: 'Результат', key: 'result_level', width: 20 },
+                { header: 'Преподаватели', key: 'teachers', width: 40 },
+                { header: 'Студенты', key: 'students', width: 40 },
+                { header: 'Путь к фото', key: 'photo_path', width: 50 } // Новый столбец
             ];
 
-            // Данные
-            events.forEach(event => {
+            // Формируем полные URL для фото
+            const eventsWithFullPaths = events.map(event => ({
+                ...event,
+                photo_path: event.photo_path
+                    ? `${API_BASE_URL}${event.photo_path}`
+                    : 'Нет фото'
+            }));
+
+            // Добавляем данные
+            eventsWithFullPaths.forEach(event => {
                 worksheet.addRow({
-                    name: event.full_name,
-                    date: event.event_date,
+                    full_name: event.full_name,
+                    event_date: event.event_date,
                     location: event.location,
-                    level: event.event_level,
-                    result: event.result_level
+                    event_level: event.event_level,
+                    result_level: event.result_level,
+                    teachers: event.teachers,
+                    students: event.students,
+                    photo_path: event.photo_path // Добавляем путь
                 });
             });
 
+            // Делаем пути кликабельными
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) { // Пропускаем заголовок
+                    const photoCell = row.getCell('photo_path');
+                    if (photoCell.value && photoCell.value !== 'Нет фото') {
+                        photoCell.value = {
+                            text: photoCell.value,
+                            hyperlink: photoCell.value
+                        };
+                        photoCell.font = { color: { argb: 'FF0000FF' }, underline: true };
+                    }
+                }
+            });
+
+            // Отправляем файл
+            const buffer = await workbook.xlsx.writeBuffer();
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=events.xlsx');
-            await workbook.xlsx.write(res);
-            res.end();
-
-        } else if (format === 'pdf') {
+            res.send(buffer);
+        }
+        else if (format === 'pdf')
+        {
             const doc = new PDFDocument();
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename=events.pdf');
-            doc.pipe(res);
+            const buffers = [];
 
-            doc.fontSize(20).text('Отчет о мероприятиях', { align: 'center' });
+            // Регистрируем кириллические шрифты
+            const fontPath = path.join(__dirname, 'fonts', 'arial.ttf');
+            const boldFontPath = path.join(__dirname, 'fonts', 'arial-bold.ttf');
+
+            doc.registerFont('Arial', fontPath);
+            doc.registerFont('Arial-Bold', boldFontPath);
+
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => {
+                const pdfData = Buffer.concat(buffers);
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename=events_${Date.now()}.pdf`);
+                res.send(pdfData);
+            });
+
+            // Используем кириллические шрифты
+            doc.font('Arial');
+            doc.fontSize(16).text('Отчет о мероприятиях', { align: 'center' });
             doc.moveDown();
 
-            events.forEach(event => {
-                doc.fontSize(14).text(event.full_name);
-                doc.fontSize(12).text(`Дата: ${event.event_date}`);
+            events.forEach((event, index) => {
+                doc.font('Arial-Bold').fontSize(12).text(`Мероприятие #${index + 1}: ${event.full_name}`);
+                doc.font('Arial').fontSize(10);
+                doc.text(`Дата: ${new Date(event.event_date).toLocaleDateString('ru-RU')}`);
                 doc.text(`Место: ${event.location}`);
                 doc.text(`Уровень: ${event.event_level}`);
                 doc.text(`Результат: ${event.result_level}`);
-                doc.moveDown();
+                doc.text(`Преподаватели: ${event.teachers || 'нет'}`);
+                doc.text(`Студенты: ${event.students || 'нет'}`);
+
+                if (event.photo_path) {
+                    try {
+                        const cleanPath = event.photo_path.startsWith('/uploads/')
+                            ? event.photo_path.substring('/uploads/'.length)
+                            : event.photo_path;
+
+                        const imagePath = path.join(__dirname, 'uploads', cleanPath);
+
+                        if (fs.existsSync(imagePath)) {
+                            const ext = path.extname(imagePath).toLowerCase();
+                            if (['.jpg', '.jpeg', '.png'].includes(ext)) {
+                                doc.moveDown().text('Фото:');
+                                doc.image(imagePath, {
+                                    fit: [200, 200],
+                                    align: 'center'
+                                });
+                            } else {
+                                doc.text('(Формат изображения не поддерживается)');
+                            }
+                        } else {
+                            doc.text('(Файл изображения не найден)');
+                        }
+                    } catch (error) {
+                        console.error('Error loading image:', error);
+                        doc.text('(Ошибка загрузки фото)');
+                    }
+                }
+
+                doc.moveDown().moveDown();
             });
 
             doc.end();
         }
     } catch (error) {
         console.error('Export error:', error);
-        res.status(500).json({ error: 'Export failed' });
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Export failed' });
+        }
     }
 });
 
@@ -449,19 +480,26 @@ function authMiddleware(req, res, next) {
 
 app.get('/api/events', authMiddleware, (req, res) => {
     let sql = `
-    SELECT 
-      e.id,
-      e.full_name,
-      e.event_date,
-      e.location,
-      el.name AS event_level,
-      rl.name AS result_level,
-      e.photo_path,
-      ... 
-    FROM events e
-    JOIN event_levels el ON e.event_level_id = el.id
-    JOIN result_levels rl ON e.result_level_id = rl.id
-  `;
+        SELECT
+            e.id,
+            e.full_name,
+            e.event_date,
+            e.location,
+            el.name AS event_level,
+            rl.name AS result_level,
+            e.photo_path,
+            (SELECT GROUP_CONCAT(t.full_name)
+             FROM event_teachers et
+                      JOIN teachers t ON et.teacher_id = t.id
+             WHERE et.event_id = e.id) AS teachers,
+            (SELECT GROUP_CONCAT(s.full_name)
+             FROM event_students es
+                      JOIN students s ON es.student_id = s.id
+             WHERE es.event_id = e.id) AS students
+        FROM events e
+                 JOIN event_levels el ON e.event_level_id = el.id
+                 JOIN result_levels rl ON e.result_level_id = rl.id
+    `;
 
     const filters = [];
     const params = [];

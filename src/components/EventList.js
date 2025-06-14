@@ -26,7 +26,7 @@ const EventList = () => {
             if (filters.eventLevel) params.append('eventLevel', filters.eventLevel);
             if (filters.resultLevel) params.append('resultLevel', filters.resultLevel);
 
-            const response = await axios.get(`${ API_BASE_URL } / api / events ? ${ params.toString() }`);
+            const response = await axios.get(`${ API_BASE_URL }/api/events?${ params.toString() }`);
             setEvents(response.data);
         } catch (err) {
             setError('Ошибка загрузки данных');
@@ -60,7 +60,7 @@ const EventList = () => {
             format,
             ...filters
         });
-        window.open(`${ API_BASE_URL } / api / events /export?${ params.toString() }, '_blank'`);
+        window.open(`${API_BASE_URL}/api/events/export?${params.toString()}`, '_blank');
     };
 
     if (loading) return <p>Загрузка...</p>;

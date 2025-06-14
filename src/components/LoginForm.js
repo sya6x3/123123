@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './LoginForm.css';
+import { useAuth } from './AuthContext';
 
 export default function LoginForm({ onLogin }) {
-    const API_BASE_URL = "http://localhost:5000";
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleSubmit = async e => {
         e.preventDefault();
@@ -17,22 +18,14 @@ export default function LoginForm({ onLogin }) {
         setError('');
 
         try {
-            await axios.post(
-                `${API_BASE_URL}/api/login`,
-                { username, password },
-                { withCredentials: true }
-            );
-
-            onLogin();
-            navigate('/'); // ��������� ���������������
-        } catch (err) {
-            if (err.response) {
-                setError(err.response.data.error || 'ашипака');
-            } else if (err.request) {
-                setError('������ �� ��������');
+            const success = await login(username, password);
+            if (success) {
+                navigate('/');
             } else {
-                setError('������ ��� �������� �������');
+                setError('Ошибка аутентификации');
             }
+        } catch (err) {
+            setError('Ошибка сервера');
         } finally {
             setIsLoading(false);
         }
@@ -41,10 +34,10 @@ export default function LoginForm({ onLogin }) {
     return (
         <div className="login-container">
             <div className="login-card">
-                <h2 className="login-title">���� � �������</h2>
+                <h2 className="login-title">Вход в систему</h2>
                 <form onSubmit={handleSubmit} className="login-form">
                     <div className="form-group">
-                        <label htmlFor="username">�����</label>
+                        <label htmlFor="username">Имя пользователя</label>
                         <input
                             id="username"
                             type="text"
@@ -56,7 +49,7 @@ export default function LoginForm({ onLogin }) {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">������</label>
+                        <label htmlFor="password">Пароль</label>
                         <input
                             id="password"
                             type="password"

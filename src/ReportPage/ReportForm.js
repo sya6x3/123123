@@ -3,9 +3,11 @@ import { Form, Button, Alert } from 'react-bootstrap';
 import MultiSelect from './MultiSelect';
 import PhotoUpload from './PhotoUpload';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const ReportForm = () => {
   const API_BASE_URL = "http://localhost:5000";
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [eventLevels, setEventLevels] = useState([]);
